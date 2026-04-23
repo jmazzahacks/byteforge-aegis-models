@@ -5,7 +5,7 @@ Shared Python models for the [ByteForge Aegis](https://github.com/jmazzahacks/by
 ## Installation
 
 ```bash
-pip install git+https://github.com/Really-Bad-Apps/byteforge-aegis-models.git
+pip install git+https://github.com/jmazzahacks/byteforge-aegis-models.git
 ```
 
 ## Models

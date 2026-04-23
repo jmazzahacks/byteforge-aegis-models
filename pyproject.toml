@@ -30,7 +30,7 @@ dev = [
 ]
 
 [project.urls]
-Repository = "https://github.com/Really-Bad-Apps/byteforge-aegis-models"
+Repository = "https://github.com/jmazzahacks/byteforge-aegis-models"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/byteforge_aegis_models"]
