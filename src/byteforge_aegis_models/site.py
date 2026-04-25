@@ -26,6 +26,12 @@ class Site:
         tenant_api_key: Per-tenant secret required in X-Tenant-Api-Key header
             on public auth endpoints (register, login, password reset, etc.).
             Must live server-side on the tenant's backend.
+        mailgun_domain: Mailgun sending domain for this site (e.g.
+            "mg.tenantcorp.com"). When set, emails for this site route through
+            this domain. When null, falls back to the global MAILGUN_DOMAIN.
+        mailgun_api_key: Mailgun API key for this site. When set, used to
+            authenticate sends through the per-site domain. When null, falls
+            back to the global MAILGUN_API_KEY.
     """
     id: int
     name: str
@@ -40,6 +46,8 @@ class Site:
     webhook_url: Optional[str] = None
     webhook_secret: Optional[str] = None
     tenant_api_key: Optional[str] = None
+    mailgun_domain: Optional[str] = None
+    mailgun_api_key: Optional[str] = None
 
     def get_verification_redirect_url(self) -> str:
         """Get the URL to redirect to after email verification."""
@@ -59,6 +67,7 @@ class Site:
             'updated_at': self.updated_at,
             'allow_self_registration': self.allow_self_registration,
             'webhook_url': self.webhook_url,
+            'mailgun_domain': self.mailgun_domain,
         }
 
     def to_admin_dict(self) -> Dict[str, Any]:
@@ -66,6 +75,7 @@ class Site:
         result = self.to_dict()
         result['webhook_secret'] = self.webhook_secret
         result['tenant_api_key'] = self.tenant_api_key
+        result['mailgun_api_key'] = self.mailgun_api_key
         return result
 
     @classmethod
@@ -85,4 +95,6 @@ class Site:
             webhook_url=data.get('webhook_url'),
             webhook_secret=data.get('webhook_secret'),
             tenant_api_key=data.get('tenant_api_key'),
+            mailgun_domain=data.get('mailgun_domain'),
+            mailgun_api_key=data.get('mailgun_api_key'),
         )
