@@ -23,6 +23,9 @@ class Site:
         allow_self_registration: Whether public self-registration is enabled
         webhook_url: URL to receive webhook notifications
         webhook_secret: HMAC secret for webhook signature verification
+        tenant_api_key: Per-tenant secret required in X-Tenant-Api-Key header
+            on public auth endpoints (register, login, password reset, etc.).
+            Must live server-side on the tenant's backend.
     """
     id: int
     name: str
@@ -36,6 +39,7 @@ class Site:
     allow_self_registration: bool = True
     webhook_url: Optional[str] = None
     webhook_secret: Optional[str] = None
+    tenant_api_key: Optional[str] = None
 
     def get_verification_redirect_url(self) -> str:
         """Get the URL to redirect to after email verification."""
@@ -57,6 +61,13 @@ class Site:
             'webhook_url': self.webhook_url,
         }
 
+    def to_admin_dict(self) -> Dict[str, Any]:
+        """Convert site model to dictionary including secrets (admin-only use)."""
+        result = self.to_dict()
+        result['webhook_secret'] = self.webhook_secret
+        result['tenant_api_key'] = self.tenant_api_key
+        return result
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'Site':
         """Create site model from dictionary."""
@@ -73,4 +84,5 @@ class Site:
             allow_self_registration=data.get('allow_self_registration', True),
             webhook_url=data.get('webhook_url'),
             webhook_secret=data.get('webhook_secret'),
+            tenant_api_key=data.get('tenant_api_key'),
         )
