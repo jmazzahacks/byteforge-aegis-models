@@ -151,6 +151,25 @@ class TestRefreshToken:
         restored = RefreshToken.from_dict(token.to_dict())
         assert restored == token
 
+    def test_from_api_wire_format(self) -> None:
+        """API responses (per RefreshTokenResponseSchema) omit family_id,
+        created_at, used_at, and revoked. from_dict must accept this shape."""
+        wire = {
+            "token": "ref_abc",
+            "site_id": 1,
+            "user_id": 5,
+            "expires_at": 1700099999,
+        }
+        token = RefreshToken.from_dict(wire)
+        assert token.token == "ref_abc"
+        assert token.site_id == 1
+        assert token.user_id == 5
+        assert token.expires_at == 1700099999
+        assert token.family_id is None
+        assert token.created_at is None
+        assert token.used_at is None
+        assert token.revoked is False
+
 
 class TestLoginResult:
     def test_with_refresh_token(self) -> None:
