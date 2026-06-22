@@ -11,7 +11,9 @@ class Site:
     Users are scoped to a specific site.
 
     Attributes:
-        id: Unique site identifier
+        id: Legacy integer site identifier (read-only during the UUID
+            migration; will be removed once all tenants migrate to uuid)
+        uuid: Globally-unique site identifier (UUIDv7). Source of truth.
         name: Human-readable name of the site
         domain: Domain name of the site (unique)
         frontend_url: Frontend URL for this site (used in email links)
@@ -41,6 +43,7 @@ class Site:
     email_from_name: str
     created_at: int
     updated_at: int
+    uuid: Optional[str] = None
     verification_redirect_url: Optional[str] = None
     allow_self_registration: bool = True
     webhook_url: Optional[str] = None
@@ -57,6 +60,7 @@ class Site:
         """Convert site model to dictionary."""
         return {
             'id': self.id,
+            'uuid': self.uuid,
             'name': self.name,
             'domain': self.domain,
             'frontend_url': self.frontend_url,
@@ -83,6 +87,7 @@ class Site:
         """Create site model from dictionary."""
         return cls(
             id=data['id'],
+            uuid=data.get('uuid'),
             name=data['name'],
             domain=data['domain'],
             frontend_url=data['frontend_url'],

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from byteforge_aegis_models.user_role import UserRole
 
@@ -16,8 +16,11 @@ class User:
     the API never returns it to clients.
 
     Attributes:
-        id: Unique user identifier
-        site_id: The site/tenant this user belongs to
+        id: Legacy integer user identifier (read-only during the UUID
+            migration; will be removed once all tenants migrate to uuid)
+        site_id: Legacy integer id of the site/tenant this user belongs to
+        uuid: Globally-unique user identifier (UUIDv7). Source of truth.
+        site_uuid: Globally-unique id of the site/tenant this user belongs to
         email: User's email address (unique per site)
         is_verified: Whether the user's email has been verified
         role: User role (USER or ADMIN)
@@ -31,12 +34,16 @@ class User:
     role: UserRole
     created_at: int
     updated_at: int
+    uuid: Optional[str] = None
+    site_uuid: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert user model to dictionary."""
         return {
             'id': self.id,
             'site_id': self.site_id,
+            'uuid': self.uuid,
+            'site_uuid': self.site_uuid,
             'email': self.email,
             'is_verified': self.is_verified,
             'role': self.role.value,
@@ -50,6 +57,8 @@ class User:
         return cls(
             id=data['id'],
             site_id=data['site_id'],
+            uuid=data.get('uuid'),
+            site_uuid=data.get('site_uuid'),
             email=data['email'],
             is_verified=data['is_verified'],
             role=UserRole(data['role']),

@@ -17,9 +17,11 @@ class RefreshToken:
 
     Attributes:
         token: Unique secure token string
-        site_id: ID of the site this token belongs to
-        user_id: ID of the user this token belongs to
+        site_id: Legacy integer id of the site this token belongs to
+        user_id: Legacy integer id of the user this token belongs to
         expires_at: Unix timestamp when the token expires
+        site_uuid: Globally-unique id of the site this token belongs to. Source of truth.
+        user_uuid: Globally-unique id of the user this token belongs to. Source of truth.
         family_id: Groups related rotated tokens for revocation (omitted in API responses)
         created_at: Unix timestamp when the token was created (omitted in API responses)
         used_at: Unix timestamp when token was exchanged (omitted in API responses)
@@ -29,6 +31,8 @@ class RefreshToken:
     site_id: int
     user_id: int
     expires_at: int
+    site_uuid: Optional[str] = None
+    user_uuid: Optional[str] = None
     family_id: Optional[str] = None
     created_at: Optional[int] = None
     used_at: Optional[int] = None
@@ -42,6 +46,10 @@ class RefreshToken:
             'user_id': self.user_id,
             'expires_at': self.expires_at,
         }
+        if self.site_uuid is not None:
+            result['site_uuid'] = self.site_uuid
+        if self.user_uuid is not None:
+            result['user_uuid'] = self.user_uuid
         if self.family_id is not None:
             result['family_id'] = self.family_id
         if self.created_at is not None:
@@ -60,6 +68,8 @@ class RefreshToken:
             site_id=data['site_id'],
             user_id=data['user_id'],
             expires_at=data['expires_at'],
+            site_uuid=data.get('site_uuid'),
+            user_uuid=data.get('user_uuid'),
             family_id=data.get('family_id'),
             created_at=data.get('created_at'),
             used_at=data.get('used_at'),

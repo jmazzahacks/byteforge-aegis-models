@@ -15,16 +15,20 @@ class AuthToken:
 
     Attributes:
         token: Unique secure token string
-        user_id: ID of the user this token belongs to
+        user_id: Legacy integer id of the user this token belongs to
         expires_at: Unix timestamp when the token expires
-        site_id: ID of the site this token belongs to (omitted in API responses)
+        site_id: Legacy integer id of the site this token belongs to (omitted in API responses)
         created_at: Unix timestamp when the token was created (omitted in API responses)
+        user_uuid: Globally-unique id of the user this token belongs to. Source of truth.
+        site_uuid: Globally-unique id of the site this token belongs to (omitted in API responses)
     """
     token: str
     user_id: int
     expires_at: int
     site_id: Optional[int] = None
     created_at: Optional[int] = None
+    user_uuid: Optional[str] = None
+    site_uuid: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert auth token model to dictionary."""
@@ -37,6 +41,10 @@ class AuthToken:
             result['site_id'] = self.site_id
         if self.created_at is not None:
             result['created_at'] = self.created_at
+        if self.user_uuid is not None:
+            result['user_uuid'] = self.user_uuid
+        if self.site_uuid is not None:
+            result['site_uuid'] = self.site_uuid
         return result
 
     @classmethod
@@ -48,4 +56,6 @@ class AuthToken:
             expires_at=data['expires_at'],
             site_id=data.get('site_id'),
             created_at=data.get('created_at'),
+            user_uuid=data.get('user_uuid'),
+            site_uuid=data.get('site_uuid'),
         )
