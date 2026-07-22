@@ -15,8 +15,8 @@ class TestWebhookVerifier:
         self.timestamp = int(time.time())
         self.payload_dict = {
             "event_type": "user.verified",
-            "site_id": 1,
-            "user_id": 10,
+            "site_uuid": "0191e1a0-0000-7000-8000-000000000001",
+            "user_uuid": "0191e1a0-0000-7000-8000-0000000000aa",
             "email": "test@example.com",
             "aegis_role": "user",
             "timestamp": self.timestamp,

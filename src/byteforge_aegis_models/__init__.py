@@ -1,6 +1,6 @@
 """ByteForge Aegis shared models for multi-tenant authentication."""
 
-__version__ = "1.4.0"
+__version__ = "2.0.0"
 
 from byteforge_aegis_models.auth_token import AuthToken
 from byteforge_aegis_models.email_change_response import EmailChangeResponse

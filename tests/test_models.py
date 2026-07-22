@@ -12,6 +12,10 @@ from byteforge_aegis_models import (
     WebhookPayload,
 )
 
+SITE_UUID = "0191e1a0-0000-7000-8000-000000000001"
+USER_UUID = "0191e1a0-0000-7000-8000-0000000000aa"
+EVENT_UUID = "0191e1a0-0000-7000-8000-0000000000ee"
+
 
 class TestUserRole:
     def test_values(self) -> None:
@@ -26,7 +30,7 @@ class TestUserRole:
 class TestSite:
     def _make_site(self) -> Site:
         return Site(
-            id=1,
+            uuid=SITE_UUID,
             name="Test Site",
             domain="test.example.com",
             frontend_url="https://test.example.com",
@@ -42,19 +46,21 @@ class TestSite:
     def test_to_dict(self) -> None:
         site = self._make_site()
         d = site.to_dict()
-        assert d["id"] == 1
+        assert d["uuid"] == SITE_UUID
         assert d["name"] == "Test Site"
         assert d["domain"] == "test.example.com"
         assert d["webhook_url"] == "https://test.example.com/webhook"
         # webhook_secret is intentionally excluded from to_dict
         assert "webhook_secret" not in d
+        # The legacy integer id is gone as of 2.0.0.
+        assert "id" not in d
 
     def test_from_dict_roundtrip(self) -> None:
         site = self._make_site()
         d = site.to_dict()
         d["webhook_secret"] = "abc123"
         restored = Site.from_dict(d)
-        assert restored.id == site.id
+        assert restored.uuid == site.uuid
         assert restored.webhook_secret == "abc123"
 
     def test_get_verification_redirect_url_with_override(self) -> None:
@@ -68,29 +74,21 @@ class TestSite:
 
     def test_defaults(self) -> None:
         site = Site(
-            id=2, name="Min", domain="min.com", frontend_url="https://min.com",
-            email_from="a@b.com", email_from_name="Min", created_at=0, updated_at=0,
+            uuid=SITE_UUID, name="Min", domain="min.com",
+            frontend_url="https://min.com", email_from="a@b.com",
+            email_from_name="Min", created_at=0, updated_at=0,
         )
         assert site.allow_self_registration is True
         assert site.webhook_url is None
         assert site.webhook_secret is None
         assert site.verification_redirect_url is None
-        assert site.uuid is None
-
-    def test_uuid_roundtrip(self) -> None:
-        site = self._make_site()
-        site.uuid = "0191e1a0-0000-7000-8000-000000000001"
-        d = site.to_dict()
-        assert d["uuid"] == site.uuid
-        restored = Site.from_dict(d)
-        assert restored.uuid == site.uuid
 
 
 class TestUser:
     def _make_user(self) -> User:
         return User(
-            id=10,
-            site_id=1,
+            uuid=USER_UUID,
+            site_uuid=SITE_UUID,
             email="user@test.com",
             is_verified=True,
             role=UserRole.USER,
@@ -101,8 +99,12 @@ class TestUser:
     def test_to_dict(self) -> None:
         user = self._make_user()
         d = user.to_dict()
+        assert d["uuid"] == USER_UUID
+        assert d["site_uuid"] == SITE_UUID
         assert d["role"] == "user"
         assert "password_hash" not in d
+        assert "id" not in d
+        assert "site_id" not in d
 
     def test_from_dict_roundtrip(self) -> None:
         user = self._make_user()
@@ -114,68 +116,45 @@ class TestUser:
         user.role = UserRole.ADMIN
         assert user.to_dict()["role"] == "admin"
 
-    def test_uuid_defaults_none(self) -> None:
-        user = self._make_user()
-        assert user.uuid is None
-        assert user.site_uuid is None
-
-    def test_uuid_roundtrip(self) -> None:
-        user = self._make_user()
-        user.uuid = "0191e1a0-0000-7000-8000-0000000000aa"
-        user.site_uuid = "0191e1a0-0000-7000-8000-000000000001"
-        restored = User.from_dict(user.to_dict())
-        assert restored == user
-        assert restored.uuid == user.uuid
-        assert restored.site_uuid == user.site_uuid
-
 
 class TestAuthToken:
     def test_minimal(self) -> None:
-        token = AuthToken(token="tok_abc", user_id=5, expires_at=1700009999)
-        assert token.site_id is None
+        token = AuthToken(token="tok_abc", user_uuid=USER_UUID, expires_at=1700009999)
+        assert token.site_uuid is None
         assert token.created_at is None
 
     def test_to_dict_excludes_none(self) -> None:
-        token = AuthToken(token="tok_abc", user_id=5, expires_at=1700009999)
+        token = AuthToken(token="tok_abc", user_uuid=USER_UUID, expires_at=1700009999)
         d = token.to_dict()
-        assert "site_id" not in d
+        assert "site_uuid" not in d
         assert "created_at" not in d
 
     def test_to_dict_includes_when_present(self) -> None:
-        token = AuthToken(token="tok_abc", user_id=5, expires_at=1700009999,
-                          site_id=1, created_at=1700000000)
+        token = AuthToken(token="tok_abc", user_uuid=USER_UUID, expires_at=1700009999,
+                          site_uuid=SITE_UUID, created_at=1700000000)
         d = token.to_dict()
-        assert d["site_id"] == 1
+        assert d["site_uuid"] == SITE_UUID
         assert d["created_at"] == 1700000000
 
     def test_from_dict_roundtrip(self) -> None:
-        token = AuthToken(token="tok_abc", user_id=5, expires_at=1700009999,
-                          site_id=1, created_at=1700000000)
+        token = AuthToken(token="tok_abc", user_uuid=USER_UUID, expires_at=1700009999,
+                          site_uuid=SITE_UUID, created_at=1700000000)
         restored = AuthToken.from_dict(token.to_dict())
         assert restored == token
 
-    def test_uuid_omitted_when_none(self) -> None:
-        token = AuthToken(token="tok_abc", user_id=5, expires_at=1700009999)
+    def test_to_dict_has_no_int_ids(self) -> None:
+        token = AuthToken(token="tok_abc", user_uuid=USER_UUID, expires_at=1700009999,
+                          site_uuid=SITE_UUID, created_at=1700000000)
         d = token.to_dict()
-        assert "user_uuid" not in d
-        assert "site_uuid" not in d
-
-    def test_uuid_roundtrip(self) -> None:
-        token = AuthToken(token="tok_abc", user_id=5, expires_at=1700009999,
-                          site_id=1, created_at=1700000000,
-                          user_uuid="0191e1a0-0000-7000-8000-0000000000aa",
-                          site_uuid="0191e1a0-0000-7000-8000-000000000001")
-        d = token.to_dict()
-        assert d["user_uuid"] == token.user_uuid
-        assert d["site_uuid"] == token.site_uuid
-        assert AuthToken.from_dict(d) == token
+        assert "user_id" not in d
+        assert "site_id" not in d
 
 
 class TestRefreshToken:
     def _make_token(self) -> RefreshToken:
         return RefreshToken(
-            token="ref_abc", site_id=1, user_id=5, family_id="fam_123",
-            expires_at=1700099999, created_at=1700000000,
+            token="ref_abc", site_uuid=SITE_UUID, user_uuid=USER_UUID,
+            family_id="fam_123", expires_at=1700099999, created_at=1700000000,
         )
 
     def test_defaults(self) -> None:
@@ -195,28 +174,33 @@ class TestRefreshToken:
         created_at, used_at, and revoked. from_dict must accept this shape."""
         wire = {
             "token": "ref_abc",
-            "site_id": 1,
-            "user_id": 5,
+            "site_uuid": SITE_UUID,
+            "user_uuid": USER_UUID,
             "expires_at": 1700099999,
         }
         token = RefreshToken.from_dict(wire)
         assert token.token == "ref_abc"
-        assert token.site_id == 1
-        assert token.user_id == 5
+        assert token.site_uuid == SITE_UUID
+        assert token.user_uuid == USER_UUID
         assert token.expires_at == 1700099999
         assert token.family_id is None
         assert token.created_at is None
         assert token.used_at is None
         assert token.revoked is False
 
+    def test_to_dict_has_no_int_ids(self) -> None:
+        d = self._make_token().to_dict()
+        assert "user_id" not in d
+        assert "site_id" not in d
+
 
 class TestLoginResult:
     def test_with_refresh_token(self) -> None:
         result = LoginResult(
-            auth_token=AuthToken(token="a", user_id=1, expires_at=9999),
+            auth_token=AuthToken(token="a", user_uuid=USER_UUID, expires_at=9999),
             refresh_token=RefreshToken(
-                token="r", site_id=1, user_id=1, family_id="f",
-                expires_at=99999, created_at=0,
+                token="r", site_uuid=SITE_UUID, user_uuid=USER_UUID,
+                family_id="f", expires_at=99999, created_at=0,
             ),
         )
         d = result.to_dict()
@@ -229,7 +213,7 @@ class TestLoginResult:
 
     def test_without_refresh_token(self) -> None:
         result = LoginResult(
-            auth_token=AuthToken(token="a", user_id=1, expires_at=9999),
+            auth_token=AuthToken(token="a", user_uuid=USER_UUID, expires_at=9999),
         )
         d = result.to_dict()
         assert "refresh_token" not in d
@@ -239,8 +223,8 @@ class TestLoginResult:
 
 class TestVerificationResult:
     def test_roundtrip(self) -> None:
-        user = User(id=1, site_id=1, email="a@b.com", is_verified=True,
-                     role=UserRole.USER, created_at=0, updated_at=0)
+        user = User(uuid=USER_UUID, site_uuid=SITE_UUID, email="a@b.com",
+                    is_verified=True, role=UserRole.USER, created_at=0, updated_at=0)
         result = VerificationResult(user=user, redirect_url="https://example.com/welcome")
         restored = VerificationResult.from_dict(result.to_dict())
         assert restored.user.email == "a@b.com"
@@ -255,41 +239,32 @@ class TestVerificationTokenStatus:
 
 
 class TestWebhookPayload:
+    def _make_payload(self) -> WebhookPayload:
+        return WebhookPayload(
+            event_type="user.verified", site_uuid=SITE_UUID, user_uuid=USER_UUID,
+            email="a@b.com", aegis_role="user", timestamp=1700000000,
+        )
+
     def test_to_dict(self) -> None:
-        payload = WebhookPayload(
-            event_type="user.verified", site_id=1, user_id=10,
-            email="a@b.com", aegis_role="user", timestamp=1700000000,
-        )
-        d = payload.to_dict()
+        d = self._make_payload().to_dict()
         assert d["event_type"] == "user.verified"
+        assert d["site_uuid"] == SITE_UUID
+        assert d["user_uuid"] == USER_UUID
+        assert "site_id" not in d
+        assert "user_id" not in d
 
-    def test_from_dict(self) -> None:
-        data = {
-            "event_type": "user.verified", "site_id": 1, "user_id": 10,
-            "email": "a@b.com", "aegis_role": "user", "timestamp": 1700000000,
-        }
-        payload = WebhookPayload.from_dict(data)
-        assert payload.email == "a@b.com"
-        # Legacy payloads without uuids roundtrip to the exact same dict.
-        assert payload.to_dict() == data
-
-    def test_uuid_included_when_present(self) -> None:
-        payload = WebhookPayload(
-            event_type="user.verified", site_id=1, user_id=10,
-            email="a@b.com", aegis_role="user", timestamp=1700000000,
-            site_uuid="0191e1a0-0000-7000-8000-000000000001",
-            user_uuid="0191e1a0-0000-7000-8000-0000000000aa",
-        )
+    def test_from_dict_roundtrip(self) -> None:
+        payload = self._make_payload()
         d = payload.to_dict()
-        assert d["site_uuid"] == payload.site_uuid
-        assert d["user_uuid"] == payload.user_uuid
         assert WebhookPayload.from_dict(d) == payload
+        # Wire format roundtrips to the exact same dict.
+        assert WebhookPayload.from_dict(d).to_dict() == d
 
 
 class TestWebhookEvent:
     def test_roundtrip(self) -> None:
         event = WebhookEvent(
-            id=1, site_id=1, event_type="user.verified",
+            uuid=EVENT_UUID, site_uuid=SITE_UUID, event_type="user.verified",
             payload='{"test": true}', response_status=200,
             response_body="OK", success=True, created_at=1700000000,
         )
@@ -298,8 +273,11 @@ class TestWebhookEvent:
 
     def test_optional_fields(self) -> None:
         event = WebhookEvent(
-            id=0, site_id=1, event_type="user.verified",
+            uuid=EVENT_UUID, site_uuid=SITE_UUID, event_type="user.verified",
             payload='{}', response_status=None,
             response_body=None, success=False, created_at=0,
         )
         assert event.response_status is None
+        d = event.to_dict()
+        assert "id" not in d
+        assert "site_id" not in d

@@ -10,10 +10,7 @@ class WebhookEvent:
     Tracks every webhook delivery attempt for audit and debugging.
 
     Attributes:
-        id: Legacy integer event identifier (read-only during the UUID
-            migration; will be removed once all tenants migrate to uuid)
-        site_id: Legacy integer id of the site this webhook was sent for
-        uuid: Globally-unique event identifier (UUIDv7). Source of truth.
+        uuid: Globally-unique event identifier (UUIDv7)
         site_uuid: Globally-unique id of the site this webhook was sent for
         event_type: Type of event (e.g., 'user.verified')
         payload: JSON payload that was sent
@@ -22,22 +19,18 @@ class WebhookEvent:
         success: Whether the delivery was successful (2xx response)
         created_at: Unix timestamp when the webhook was sent
     """
-    id: int
-    site_id: int
+    uuid: str
+    site_uuid: str
     event_type: str
     payload: str
     response_status: Optional[int]
     response_body: Optional[str]
     success: bool
     created_at: int
-    uuid: Optional[str] = None
-    site_uuid: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert webhook event to dictionary."""
         return {
-            'id': self.id,
-            'site_id': self.site_id,
             'uuid': self.uuid,
             'site_uuid': self.site_uuid,
             'event_type': self.event_type,
@@ -52,10 +45,8 @@ class WebhookEvent:
     def from_dict(cls, data: Dict[str, Any]) -> 'WebhookEvent':
         """Create webhook event from dictionary."""
         return cls(
-            id=data.get('id', 0),
-            site_id=data['site_id'],
-            uuid=data.get('uuid'),
-            site_uuid=data.get('site_uuid'),
+            uuid=data['uuid'],
+            site_uuid=data['site_uuid'],
             event_type=data['event_type'],
             payload=data['payload'],
             response_status=data.get('response_status'),
