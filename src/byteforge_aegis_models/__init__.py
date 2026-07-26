@@ -1,6 +1,6 @@
 """ByteForge Aegis shared models for multi-tenant authentication."""
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 
 from byteforge_aegis_models.auth_token import AuthToken
 from byteforge_aegis_models.email_change_response import EmailChangeResponse
@@ -14,6 +14,7 @@ from byteforge_aegis_models.user_role import UserRole
 from byteforge_aegis_models.verification_result import VerificationResult
 from byteforge_aegis_models.verification_token_status import VerificationTokenStatus
 from byteforge_aegis_models.webhook_event import WebhookEvent
+from byteforge_aegis_models.webhook_event_type import WebhookEventType
 from byteforge_aegis_models.webhook_payload import WebhookPayload
 from byteforge_aegis_models.webhook_verifier import WebhookHeaders, WebhookVerifier
 
@@ -30,6 +31,7 @@ __all__ = [
     "VerificationResult",
     "VerificationTokenStatus",
     "WebhookEvent",
+    "WebhookEventType",
     "WebhookHeaders",
     "WebhookPayload",
     "WebhookVerifier",

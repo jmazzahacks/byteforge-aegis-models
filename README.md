@@ -18,6 +18,7 @@ pip install git+https://github.com/jmazzahacks/byteforge-aegis-models.git
 - `LoginResult` - Composite login/refresh response
 - `VerificationResult` - Email verification result
 - `VerificationTokenStatus` - Token check response
+- `WebhookEventType` - Enum for webhook event types (user.verified, user.deleted)
 - `WebhookPayload` - Structured webhook payload
 - `WebhookEvent` - Webhook delivery log record
 

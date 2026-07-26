@@ -9,6 +9,7 @@ from byteforge_aegis_models import (
     VerificationResult,
     VerificationTokenStatus,
     WebhookEvent,
+    WebhookEventType,
     WebhookPayload,
 )
 
@@ -241,13 +242,14 @@ class TestVerificationTokenStatus:
 class TestWebhookPayload:
     def _make_payload(self) -> WebhookPayload:
         return WebhookPayload(
-            event_type="user.verified", site_uuid=SITE_UUID, user_uuid=USER_UUID,
+            event_type=WebhookEventType.USER_VERIFIED, site_uuid=SITE_UUID, user_uuid=USER_UUID,
             email="a@b.com", aegis_role="user", timestamp=1700000000,
         )
 
     def test_to_dict(self) -> None:
         d = self._make_payload().to_dict()
         assert d["event_type"] == "user.verified"
+        assert isinstance(d["event_type"], str) and not isinstance(d["event_type"], WebhookEventType)
         assert d["site_uuid"] == SITE_UUID
         assert d["user_uuid"] == USER_UUID
         assert "site_id" not in d
@@ -259,6 +261,25 @@ class TestWebhookPayload:
         assert WebhookPayload.from_dict(d) == payload
         # Wire format roundtrips to the exact same dict.
         assert WebhookPayload.from_dict(d).to_dict() == d
+
+    def test_from_dict_unknown_event_type_rejected(self) -> None:
+        d = self._make_payload().to_dict()
+        d["event_type"] = "user.exploded"
+        try:
+            WebhookPayload.from_dict(d)
+            assert False, "expected ValueError for unknown event_type"
+        except ValueError:
+            pass
+
+
+class TestWebhookEventType:
+    def test_values(self) -> None:
+        assert WebhookEventType.USER_VERIFIED.value == "user.verified"
+        assert WebhookEventType.USER_DELETED.value == "user.deleted"
+
+    def test_compares_equal_to_plain_string(self) -> None:
+        # Tenants compare against raw strings; the str-subclass enum must match.
+        assert WebhookEventType.USER_DELETED == "user.deleted"
 
 
 class TestWebhookEvent:
