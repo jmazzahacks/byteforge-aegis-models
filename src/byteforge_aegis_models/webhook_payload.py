@@ -13,6 +13,9 @@ class WebhookPayload:
     to the site's webhook_url.
 
     Attributes:
+        event_id: Globally-unique id of this event (UUIDv7). Stable across
+            delivery attempts of the same event — use it to deduplicate and
+            to reference the event when reporting delivery problems.
         event_type: Type of event (USER_VERIFIED or USER_DELETED)
         site_uuid: Globally-unique id of the site this event belongs to
         user_uuid: Globally-unique Aegis user id
@@ -20,6 +23,7 @@ class WebhookPayload:
         aegis_role: The user's Aegis role ('user' or 'admin')
         timestamp: Unix timestamp when the event occurred
     """
+    event_id: str
     event_type: WebhookEventType
     site_uuid: str
     user_uuid: str
@@ -30,6 +34,7 @@ class WebhookPayload:
     def to_dict(self) -> Dict[str, Any]:
         """Convert payload to dictionary for JSON serialization."""
         return {
+            'event_id': self.event_id,
             'event_type': self.event_type.value,
             'site_uuid': self.site_uuid,
             'user_uuid': self.user_uuid,
@@ -42,6 +47,7 @@ class WebhookPayload:
     def from_dict(cls, data: Dict[str, Any]) -> 'WebhookPayload':
         """Create webhook payload from dictionary."""
         return cls(
+            event_id=data['event_id'],
             event_type=WebhookEventType(data['event_type']),
             site_uuid=data['site_uuid'],
             user_uuid=data['user_uuid'],

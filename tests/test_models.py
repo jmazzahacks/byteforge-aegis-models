@@ -242,12 +242,14 @@ class TestVerificationTokenStatus:
 class TestWebhookPayload:
     def _make_payload(self) -> WebhookPayload:
         return WebhookPayload(
-            event_type=WebhookEventType.USER_VERIFIED, site_uuid=SITE_UUID, user_uuid=USER_UUID,
+            event_id=EVENT_UUID, event_type=WebhookEventType.USER_VERIFIED,
+            site_uuid=SITE_UUID, user_uuid=USER_UUID,
             email="a@b.com", aegis_role="user", timestamp=1700000000,
         )
 
     def test_to_dict(self) -> None:
         d = self._make_payload().to_dict()
+        assert d["event_id"] == EVENT_UUID
         assert d["event_type"] == "user.verified"
         assert isinstance(d["event_type"], str) and not isinstance(d["event_type"], WebhookEventType)
         assert d["site_uuid"] == SITE_UUID
