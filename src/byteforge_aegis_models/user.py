@@ -23,6 +23,9 @@ class User:
         role: User role (USER or ADMIN)
         created_at: Unix timestamp when the user was created
         updated_at: Unix timestamp when the user was last updated
+        deletion_protected: When True, admin deletion of this user is refused.
+            For accounts whose downstream records hold real value, where losing
+            the Aegis identity would leave that value unattributable.
     """
     uuid: str
     site_uuid: str
@@ -31,6 +34,7 @@ class User:
     role: UserRole
     created_at: int
     updated_at: int
+    deletion_protected: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert user model to dictionary."""
@@ -42,6 +46,7 @@ class User:
             'role': self.role.value,
             'created_at': self.created_at,
             'updated_at': self.updated_at,
+            'deletion_protected': self.deletion_protected,
         }
 
     @classmethod
@@ -55,4 +60,5 @@ class User:
             role=UserRole(data['role']),
             created_at=data['created_at'],
             updated_at=data['updated_at'],
+            deletion_protected=data.get('deletion_protected', False),
         )

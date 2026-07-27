@@ -103,6 +103,7 @@ class TestUser:
         assert d["uuid"] == USER_UUID
         assert d["site_uuid"] == SITE_UUID
         assert d["role"] == "user"
+        assert d["deletion_protected"] is False
         assert "password_hash" not in d
         assert "id" not in d
         assert "site_id" not in d
@@ -111,6 +112,22 @@ class TestUser:
         user = self._make_user()
         restored = User.from_dict(user.to_dict())
         assert restored == user
+
+    def test_deletion_protected_defaults_false(self) -> None:
+        assert self._make_user().deletion_protected is False
+
+    def test_deletion_protected_roundtrip(self) -> None:
+        user = self._make_user()
+        user.deletion_protected = True
+        restored = User.from_dict(user.to_dict())
+        assert restored.deletion_protected is True
+        assert restored == user
+
+    def test_from_dict_tolerates_missing_deletion_protected(self) -> None:
+        """Payloads from an older Aegis omit the field; default to unprotected."""
+        d = self._make_user().to_dict()
+        del d["deletion_protected"]
+        assert User.from_dict(d).deletion_protected is False
 
     def test_admin_role(self) -> None:
         user = self._make_user()
