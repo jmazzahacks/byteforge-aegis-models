@@ -32,6 +32,10 @@ class Site:
         mailgun_api_key: Mailgun API key for this site. When set, used to
             authenticate sends through the per-site domain. When null, falls
             back to the global MAILGUN_API_KEY.
+        deletion_protected: When True, NO user on this site may be deleted, and
+            the site itself may not be deleted. For tenants where every account
+            anchors records whose loss is unrecoverable, so protection should
+            not depend on remembering to mark each user individually.
     """
     uuid: str
     name: str
@@ -48,6 +52,7 @@ class Site:
     tenant_api_key: Optional[str] = None
     mailgun_domain: Optional[str] = None
     mailgun_api_key: Optional[str] = None
+    deletion_protected: bool = False
 
     def get_verification_redirect_url(self) -> str:
         """Get the URL to redirect to after email verification."""
@@ -68,6 +73,7 @@ class Site:
             'allow_self_registration': self.allow_self_registration,
             'webhook_url': self.webhook_url,
             'mailgun_domain': self.mailgun_domain,
+            'deletion_protected': self.deletion_protected,
         }
 
     def to_admin_dict(self) -> Dict[str, Any]:
@@ -97,4 +103,5 @@ class Site:
             tenant_api_key=data.get('tenant_api_key'),
             mailgun_domain=data.get('mailgun_domain'),
             mailgun_api_key=data.get('mailgun_api_key'),
+            deletion_protected=data.get('deletion_protected', False),
         )

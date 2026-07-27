@@ -83,6 +83,20 @@ class TestSite:
         assert site.webhook_url is None
         assert site.webhook_secret is None
         assert site.verification_redirect_url is None
+        assert site.deletion_protected is False
+
+    def test_deletion_protected_roundtrip(self) -> None:
+        site = self._make_site()
+        site.deletion_protected = True
+        d = site.to_dict()
+        assert d["deletion_protected"] is True
+        assert Site.from_dict(d).deletion_protected is True
+
+    def test_from_dict_tolerates_missing_deletion_protected(self) -> None:
+        """Payloads from an older Aegis omit the field; default to unprotected."""
+        d = self._make_site().to_dict()
+        del d["deletion_protected"]
+        assert Site.from_dict(d).deletion_protected is False
 
 
 class TestUser:
