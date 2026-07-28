@@ -1,5 +1,6 @@
 """Tests for WebhookVerifier."""
 import hashlib
+import pytest
 import hmac
 import json
 import time
@@ -145,3 +146,93 @@ class TestWebhookVerifier:
         assert self.verifier.verify(
             self.secret, headers, self.payload_json, max_drift_seconds=10
         ) is False
+
+    def test_swapped_event_header_is_rejected(self) -> None:
+        """The replay attack this guard exists for.
+
+        The HMAC covers only "{timestamp}.{body}", so X-Aegis-Event is
+        unsigned. A captured user.verified delivery, resent verbatim inside
+        the freshness window with the header changed to user.deleted, still
+        carries a valid signature — a receiver dispatching on the header
+        would delete the account the (signed, unmodified) body names.
+        """
+        raw = self._make_headers()
+        raw["X-Aegis-Event"] = "user.deleted"
+
+        assert self.verifier.verify_payload(self.secret, raw, self.payload_json) is None
+
+        headers = self.verifier.parse_headers(raw)
+        assert self.verifier.verify(self.secret, headers, self.payload_json) is False
+
+    def test_matching_event_header_still_passes(self) -> None:
+        """The guard must not reject genuine deliveries."""
+        raw = self._make_headers()
+        assert self.verifier.verify_payload(self.secret, raw, self.payload_json) is not None
+
+    def test_body_without_event_type_is_rejected(self) -> None:
+        payload = {k: v for k, v in self.payload_dict.items() if k != "event_type"}
+        body = json.dumps(payload, separators=(",", ":"))
+        sig = self._compute_sig(self.secret, self.timestamp, body)
+        headers = WebhookHeaders(
+            signature=f"sha256={sig}",
+            event_type="user.verified",
+            timestamp=self.timestamp,
+        )
+        assert self.verifier.verify(self.secret, headers, body) is False
+
+    def test_non_json_body_is_rejected(self) -> None:
+        body = "not json at all"
+        sig = self._compute_sig(self.secret, self.timestamp, body)
+        headers = WebhookHeaders(
+            signature=f"sha256={sig}",
+            event_type="user.verified",
+            timestamp=self.timestamp,
+        )
+        assert self.verifier.verify(self.secret, headers, body) is False
+
+    def test_non_object_json_body_is_rejected(self) -> None:
+        body = json.dumps(["user.verified"])
+        sig = self._compute_sig(self.secret, self.timestamp, body)
+        headers = WebhookHeaders(
+            signature=f"sha256={sig}",
+            event_type="user.verified",
+            timestamp=self.timestamp,
+        )
+        assert self.verifier.verify(self.secret, headers, body) is False
+
+    def test_non_ascii_event_header_is_rejected_not_raised(self) -> None:
+        """A homoglyph in the unsigned header must fail cleanly.
+
+        hmac.compare_digest raises TypeError on non-ASCII str, and header
+        values arrive latin-1-decoded, so comparing them that way turned a
+        forged header into a 500 instead of a rejection.
+        """
+        raw = self._make_headers()
+        raw["X-Aegis-Event"] = "user.verifiеd"  # Cyrillic 'е'
+
+        assert self.verifier.verify_payload(self.secret, raw, self.payload_json) is None
+
+    def test_non_ascii_signature_header_is_rejected_not_raised(self) -> None:
+        """Unauthenticated callers must not be able to crash a receiver.
+
+        X-Aegis-Signature is attacker-controlled with no capture required;
+        a single high byte reaching compare_digest would raise TypeError.
+        """
+        raw = self._make_headers()
+        raw["X-Aegis-Signature"] = "sha256=" + "ÿ" * 64
+
+        assert self.verifier.verify_payload(self.secret, raw, self.payload_json) is None
+
+    def test_malformed_signature_header_is_rejected(self) -> None:
+        for bad in ["sha256=", "sha256=xyz", "sha256=" + "a" * 63, "sha256=" + "a" * 65]:
+            raw = self._make_headers()
+            raw["X-Aegis-Signature"] = bad
+            assert self.verifier.verify_payload(self.secret, raw, self.payload_json) is None, bad
+
+    def test_empty_signature_header_raises(self) -> None:
+        """An absent header is a caller error, not a failed verification —
+        parse_headers documents ValueError for it."""
+        raw = self._make_headers()
+        raw["X-Aegis-Signature"] = ""
+        with pytest.raises(ValueError):
+            self.verifier.verify_payload(self.secret, raw, self.payload_json)

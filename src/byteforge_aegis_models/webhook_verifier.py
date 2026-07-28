@@ -6,12 +6,17 @@ Mirrors the signing algorithm in the backend's webhook_service.compute_signature
 import hashlib
 import hmac
 import json
+import re
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 
 DEFAULT_MAX_DRIFT_SECONDS = 300
+
+# A SHA-256 HMAC rendered as hex. Used to reject malformed signature headers
+# before they reach hmac.compare_digest, which raises on non-ASCII input.
+_HEX_DIGEST = re.compile(r'[0-9a-fA-F]{64}')
 
 
 @dataclass
@@ -21,7 +26,19 @@ class WebhookHeaders:
 
     Attributes:
         signature: The HMAC-SHA256 signature (with 'sha256=' prefix)
-        event_type: The event type (e.g., 'user.verified')
+        event_type: The event type from the X-Aegis-Event header.
+
+            DO NOT DISPATCH ON THIS. The HMAC covers only
+            "{timestamp}.{raw_body}", so this header is NOT signed — the
+            body's `event_type` is. An attacker replaying a captured
+            delivery within the freshness window can swap this header while
+            the signature still verifies. Branch on the parsed body's
+            `event_type` instead; treat this as a routing/logging hint.
+
+            `verify()` rejects a delivery whose header disagrees with the
+            body, so a verified delivery has a trustworthy header — but code
+            that dispatches on the body cannot be gotten wrong by a future
+            refactor.
         timestamp: Unix timestamp from the request
     """
     signature: str
@@ -37,7 +54,9 @@ class WebhookVerifier:
         verifier = WebhookVerifier()
         headers = verifier.parse_headers(request.headers)
         if verifier.verify(secret, headers, request.body):
-            # process webhook
+            payload = json.loads(request.body)
+            if payload['event_type'] == 'user.deleted':   # body, not header
+                ...
     """
 
     def parse_headers(self, raw_headers: Dict[str, str]) -> WebhookHeaders:
@@ -93,7 +112,15 @@ class WebhookVerifier:
             max_drift_seconds: Maximum allowed age in seconds (default 300)
 
         Returns:
-            True if signature is valid and timestamp is fresh
+            True if the signature is valid, the timestamp is fresh, and the
+            X-Aegis-Event header agrees with the body's event_type.
+
+        The last check matters: the HMAC covers only "{timestamp}.{body}",
+        so the header is unsigned. Without it, a captured delivery could be
+        replayed inside the freshness window with the header swapped — e.g.
+        a 'user.verified' turned into a 'user.deleted' naming the same user —
+        and any receiver dispatching on the header would act on the forged
+        type with a signature that checks out.
         """
         now = int(time.time())
         if abs(now - headers.timestamp) > max_drift_seconds:
@@ -105,7 +132,45 @@ class WebhookVerifier:
         if actual_sig.startswith("sha256="):
             actual_sig = actual_sig[7:]
 
-        return hmac.compare_digest(expected_sig, actual_sig)
+        # Reject anything that isn't a hex digest before comparing. Header
+        # values arrive latin-1-decoded, and hmac.compare_digest raises
+        # TypeError on non-ASCII str — so without this an unauthenticated
+        # caller could crash any receiver with a single high byte in
+        # X-Aegis-Signature.
+        if not _HEX_DIGEST.fullmatch(actual_sig):
+            return False
+
+        if not hmac.compare_digest(expected_sig, actual_sig):
+            return False
+
+        return self._header_matches_body(headers.event_type, payload_body)
+
+    def _header_matches_body(self, header_event_type: str, payload_body: str) -> bool:
+        """
+        Whether the unsigned X-Aegis-Event header agrees with the signed body.
+
+        A body that isn't JSON, isn't an object, or carries no event_type is
+        rejected: every genuine Aegis delivery has all three, so anything
+        else is either corruption or tampering.
+        """
+        try:
+            payload = json.loads(payload_body)
+        except (ValueError, TypeError):
+            return False
+
+        if not isinstance(payload, dict):
+            return False
+
+        body_event_type = payload.get('event_type')
+        if not isinstance(body_event_type, str):
+            return False
+
+        # Plain ==, not compare_digest: neither value is a secret (one is
+        # attacker-supplied, the other is public), so constant time buys
+        # nothing — and compare_digest raises TypeError on non-ASCII str,
+        # which would turn a forged header into a 500 instead of a clean
+        # rejection.
+        return header_event_type == body_event_type
 
     def verify_payload(
         self,
