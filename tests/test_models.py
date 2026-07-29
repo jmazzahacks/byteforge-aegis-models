@@ -335,3 +335,58 @@ class TestWebhookEvent:
         d = event.to_dict()
         assert "id" not in d
         assert "site_id" not in d
+
+
+class TestSiteSecretsAreNotInRepr:
+    """A logged Site must not write live credentials into a consumer's logs.
+
+    to_dict() already withheld the secrets; the dataclass-generated __repr__
+    did not. Any tenant that logs a Site, or hits an unhandled traceback
+    with one in a local, would have leaked them.
+    """
+
+    def _site(self):
+        return Site(
+            uuid='u', name='n', domain='d', frontend_url='f',
+            email_from='e', email_from_name='en',
+            created_at=1, updated_at=1,
+            webhook_secret='SECRET_WEBHOOK',
+            tenant_api_key='SECRET_TENANT',
+            mailgun_api_key='SECRET_MAILGUN',
+        )
+
+    def test_repr_omits_every_secret(self):
+        rendered = repr(self._site())
+
+        assert 'SECRET_WEBHOOK' not in rendered
+        assert 'SECRET_TENANT' not in rendered
+        assert 'SECRET_MAILGUN' not in rendered
+
+    def test_repr_still_identifies_the_site(self):
+        """Hiding the secrets must not make the repr useless for debugging."""
+        rendered = repr(self._site())
+
+        assert 'uuid' in rendered
+        assert 'domain' in rendered
+
+    def test_values_remain_readable_as_attributes(self):
+        site = self._site()
+
+        assert site.webhook_secret == 'SECRET_WEBHOOK'
+        assert site.tenant_api_key == 'SECRET_TENANT'
+        assert site.mailgun_api_key == 'SECRET_MAILGUN'
+
+    def test_admin_dict_still_carries_them(self):
+        """The master-key path depends on these being serialisable."""
+        admin = self._site().to_admin_dict()
+
+        assert admin['webhook_secret'] == 'SECRET_WEBHOOK'
+        assert admin['tenant_api_key'] == 'SECRET_TENANT'
+        assert admin['mailgun_api_key'] == 'SECRET_MAILGUN'
+
+    def test_public_dict_still_withholds_them(self):
+        public = self._site().to_dict()
+
+        assert 'webhook_secret' not in public
+        assert 'tenant_api_key' not in public
+        assert 'mailgun_api_key' not in public

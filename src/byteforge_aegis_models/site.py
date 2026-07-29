@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
 
@@ -48,10 +48,15 @@ class Site:
     verification_redirect_url: Optional[str] = None
     allow_self_registration: bool = True
     webhook_url: Optional[str] = None
-    webhook_secret: Optional[str] = None
-    tenant_api_key: Optional[str] = None
+    # repr=False on the three secrets. The generated __repr__ would print
+    # them verbatim, so a consumer that logs a Site — or hits an unhandled
+    # traceback with one in a local — writes live credentials into their
+    # logs. to_dict() already withholds them; the repr was the gap. The
+    # values remain readable as attributes.
+    webhook_secret: Optional[str] = field(default=None, repr=False)
+    tenant_api_key: Optional[str] = field(default=None, repr=False)
     mailgun_domain: Optional[str] = None
-    mailgun_api_key: Optional[str] = None
+    mailgun_api_key: Optional[str] = field(default=None, repr=False)
     deletion_protected: bool = False
 
     def get_verification_redirect_url(self) -> str:
