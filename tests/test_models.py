@@ -336,6 +336,54 @@ class TestWebhookEvent:
         assert "id" not in d
         assert "site_id" not in d
 
+    def test_event_id_defaults_to_the_row_uuid(self) -> None:
+        """Rows written before retries existed put the event id in uuid.
+
+        Falling back keeps a tenant-reported event id findable against old
+        and new rows alike, without every read site remembering to do it.
+        """
+        event = WebhookEvent(
+            uuid=EVENT_UUID, site_uuid=SITE_UUID, event_type="user.verified",
+            payload='{}', response_status=200, response_body="OK",
+            success=True, created_at=0,
+        )
+
+        assert event.event_id == EVENT_UUID
+        assert event.attempt == 1
+
+    def test_retried_attempts_share_an_event_id(self) -> None:
+        """The reason the two columns had to separate: one event, several
+        attempt rows, each with its own uuid."""
+        first = WebhookEvent(
+            uuid="0191e1a0-0000-7000-8000-00000000aaaa", event_id=EVENT_UUID,
+            site_uuid=SITE_UUID, event_type="user.verified", payload='{}',
+            response_status=500, response_body="boom", success=False,
+            attempt=1, created_at=0,
+        )
+        second = WebhookEvent(
+            uuid="0191e1a0-0000-7000-8000-00000000bbbb", event_id=EVENT_UUID,
+            site_uuid=SITE_UUID, event_type="user.verified", payload='{}',
+            response_status=200, response_body="OK", success=True,
+            attempt=2, created_at=1,
+        )
+
+        assert first.uuid != second.uuid
+        assert first.event_id == second.event_id == EVENT_UUID
+
+    def test_roundtrip_preserves_a_distinct_event_id(self) -> None:
+        event = WebhookEvent(
+            uuid="0191e1a0-0000-7000-8000-00000000cccc", event_id=EVENT_UUID,
+            site_uuid=SITE_UUID, event_type="user.verified", payload='{}',
+            response_status=200, response_body="OK", success=True,
+            attempt=3, created_at=0,
+        )
+
+        restored = WebhookEvent.from_dict(event.to_dict())
+
+        assert restored == event
+        assert restored.event_id == EVENT_UUID
+        assert restored.attempt == 3
+
 
 class TestSiteSecretsAreNotInRepr:
     """A logged Site must not write live credentials into a consumer's logs.
