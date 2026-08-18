@@ -1,6 +1,7 @@
 """Tests for all byteforge-aegis-models dataclasses."""
 from byteforge_aegis_models import (
     AuthToken,
+    HealthStatus,
     LoginResult,
     RefreshToken,
     Site,
@@ -438,3 +439,36 @@ class TestSiteSecretsAreNotInRepr:
         assert 'webhook_secret' not in public
         assert 'tenant_api_key' not in public
         assert 'mailgun_api_key' not in public
+
+
+class TestHealthStatus:
+    """The version field is the whole point — /api/health was extended to
+    report it (v66) precisely so tenants could cite a backend version, and
+    this model silently dropped it until 2.8.0."""
+
+    def test_version_survives_from_dict(self) -> None:
+        health = HealthStatus.from_dict({
+            'status': 'healthy', 'service': 'auth-service', 'version': '68',
+        })
+
+        assert health.version == '68'
+        assert health.service == 'auth-service'
+        assert health.status == 'healthy'
+
+    def test_roundtrip(self) -> None:
+        health = HealthStatus(status='healthy', service='auth-service', version='68')
+
+        assert HealthStatus.from_dict(health.to_dict()) == health
+
+    def test_older_backend_without_the_fields_does_not_raise(self) -> None:
+        """A health check is what orchestrators restart containers on, so a
+        pre-v66 backend reporting only `status` must read as None, not blow up."""
+        health = HealthStatus.from_dict({'status': 'ok'})
+
+        assert health.status == 'ok'
+        assert health.service is None
+        assert health.version is None
+
+    def test_status_only_construction_still_works(self) -> None:
+        """Both new fields default, so existing callers are unaffected."""
+        assert HealthStatus(status='ok').version is None

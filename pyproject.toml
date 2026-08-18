@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "byteforge-aegis-models"
-version = "2.7.0"
+version = "2.8.0"
 description = "Shared models for ByteForge Aegis multi-tenant authentication service"
 readme = "README.md"
 license = { file = "LICENSE" }
